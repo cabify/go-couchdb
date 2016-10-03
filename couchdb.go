@@ -13,7 +13,9 @@ import (
 )
 
 // Client represents a remote CouchDB server.
-type Client struct{ *transport }
+type Client struct {
+	*transport
+}
 
 // NewClient creates a new client object.
 //
@@ -23,7 +25,7 @@ type Client struct{ *transport }
 //
 // The second argument can be nil to use http.Transport,
 // which should be good enough in most cases.
-func NewClient(rawurl string, rt http.RoundTripper) (*Client, error) {
+func NewClient(rawurl string, rt http.RoundTripper, metrics Metrics) (*Client, error) {
 	url, err := url.Parse(rawurl)
 	if err != nil {
 		return nil, err
@@ -35,7 +37,7 @@ func NewClient(rawurl string, rt http.RoundTripper) (*Client, error) {
 		auth = BasicAuth(url.User.Username(), passwd)
 		url.User = nil
 	}
-	return &Client{newTransport(url.String(), rt, auth)}, nil
+	return &Client{newTransport(url.String(), rt, auth, metrics)}, nil
 }
 
 // URL returns the URL prefix of the server.

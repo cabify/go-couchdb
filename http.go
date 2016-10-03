@@ -13,10 +13,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Options represents CouchDB query string parameters.
 type Options map[string]interface{}
+
+type Metrics interface {
+	Send(method, path string, d time.Duration, success bool)
+}
 
 // clone creates a shallow copy of an Options map
 func (opts Options) clone() (result Options) {
@@ -28,17 +33,19 @@ func (opts Options) clone() (result Options) {
 }
 
 type transport struct {
-	prefix string // URL prefix
-	http   *http.Client
-	mu     sync.RWMutex
-	auth   Auth
+	prefix  string // URL prefix
+	http    *http.Client
+	mu      sync.RWMutex
+	auth    Auth
+	metrics Metrics
 }
 
-func newTransport(prefix string, rt http.RoundTripper, auth Auth) *transport {
+func newTransport(prefix string, rt http.RoundTripper, auth Auth, metrics Metrics) *transport {
 	return &transport{
-		prefix: strings.TrimRight(prefix, "/"),
-		http:   &http.Client{Transport: rt},
-		auth:   auth,
+		prefix:  strings.TrimRight(prefix, "/"),
+		http:    &http.Client{Transport: rt},
+		auth:    auth,
+		metrics: metrics,
 	}
 }
 
@@ -75,14 +82,23 @@ func (t *transport) request(method, path string, body io.Reader) (*http.Response
 	if method != "GET" {
 		req.Header.Set("Content-Type", "application/json")
 	}
+
+	if t.metrics != nil {
+		start := time.Now()
+		defer func() {
+			t.metrics.Send(method, path, time.Since(start), err != nil)
+		}()
+	}
+
 	resp, err := t.http.Do(req)
 	if err != nil {
 		return nil, err
-	} else if resp.StatusCode >= 400 {
-		return nil, parseError(resp) // the Body is closed by parseError
-	} else {
-		return resp, nil
 	}
+	if resp.StatusCode >= 400 {
+		err = parseError(resp) // the Body is closed by parseError
+		return nil, err
+	}
+	return resp, nil
 }
 
 // closedRequest sends an HTTP request and discards the response body.

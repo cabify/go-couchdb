@@ -215,6 +215,14 @@ func TestGetNonexistingDoc(t *testing.T) {
 	check(t, "couchdb.NotFound(err)", true, couchdb.NotFound(err))
 }
 
+func TestGetDocByEmptyID(t *testing.T) {
+	c := newTestClient(t)
+
+	var doc testDocument
+	err := c.DB("db").Get("", doc, nil)
+	check(t, "couchdb.NotFound(err)", true, couchdb.NotFound(err))
+}
+
 func TestRev(t *testing.T) {
 	c := newTestClient(t)
 	db := c.DB("db")

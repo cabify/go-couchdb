@@ -119,6 +119,9 @@ var getJsonKeys = []string{"open_revs", "atts_since"}
 //
 // http://docs.couchdb.org/en/latest/api/document/common.html?highlight=doc#get--db-docid
 func (db *DB) Get(id string, doc interface{}, opts Options) error {
+	if id == "" {
+		return errorGetByEmptyID()
+	}
 	path, err := optpath(opts, getJsonKeys, db.name, id)
 	if err != nil {
 		return err
@@ -278,4 +281,13 @@ func (db *DB) SyncDesign(d *Design) error {
 		d.Rev = rev
 	}
 	return nil
+}
+
+func errorGetByEmptyID() error {
+	return &Error{
+		Method: "GET",
+		StatusCode: http.StatusNotFound,
+		ErrorCode: "not_found",
+		Reason: "no id provided",
+	}
 }

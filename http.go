@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"context"
 )
 
 // Options represents CouchDB query string parameters.
@@ -51,17 +52,13 @@ func (t *transport) setAuth(a Auth) {
 	t.mu.Unlock()
 }
 
-func (t *transport) newRequest(method, path string, body io.Reader) (*http.Request, error) {
-	req, err := http.NewRequest(method, t.prefix+path, body)
-	if err != nil {
-		return nil, err
-	}
+func (t *transport) addAuth(req *http.Request) *http.Request {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	if t.auth != nil {
 		t.auth.AddAuth(req)
 	}
-	return req, nil
+	return req
 }
 
 // request sends an HTTP request to a CouchDB server.
@@ -70,16 +67,20 @@ func (t *transport) newRequest(method, path string, body io.Reader) (*http.Reque
 // encoded query string.
 //
 // Status codes >= 400 are treated as errors.
-func (t *transport) request(method, path string, body io.Reader) (*http.Response, error) {
-	req, err := t.newRequest(method, path, body)
+func (t *transport) request(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, t.prefix+path, body)
 	if err != nil {
 		return nil, err
 	}
+
+	t.addAuth(req)
+	req.WithContext(ctx)
+
 	if method != "GET" {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := t.http.Do(req)
-	if err != nil {
+
+	if resp, err := t.http.Do(req); err != nil {
 		return nil, err
 	} else if resp.StatusCode >= 400 {
 		return nil, parseError(resp) // the Body is closed by parseError
@@ -89,8 +90,8 @@ func (t *transport) request(method, path string, body io.Reader) (*http.Response
 }
 
 // closedRequest sends an HTTP request and discards the response body.
-func (t *transport) closedRequest(method, path string, body io.Reader) (*http.Response, error) {
-	resp, err := t.request(method, path, body)
+func (t *transport) closedRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	resp, err := t.request(ctx, method, path, body)
 	if err == nil {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()

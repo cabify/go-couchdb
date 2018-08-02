@@ -16,13 +16,6 @@ type DB struct {
 	name string
 }
 
-// DB creates a database object.
-// The database inherits the authentication and http.RoundTripper
-// of the client. The database's actual existence is not verified.
-func (c *Client) DB(name string) *DB {
-	return &DB{c.transport, name}
-}
-
 // Name returns the name of a database.
 func (db *DB) Name() string {
 	return db.name

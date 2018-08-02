@@ -88,8 +88,8 @@ func (c *ContextAwareClient) AllDBs(ctx context.Context) (names []string, err er
 // DB creates a database object.
 // The database inherits the authentication and http.RoundTripper
 // of the client. The database's actual existence is not verified.
-func (c *ContextAwareClient) DB(name string) *DB {
-	return &DB{c.transport, name}
+func (c *ContextAwareClient) DB(name string) *ContextAwareDB {
+	return &ContextAwareDB{c.transport, name}
 }
 
 // Deprecated: Use ContextAwareClient
@@ -103,4 +103,4 @@ func (c *Client) CreateDBWithShards(name string, shards int) (*DB, error) { retu
 func (c *Client) EnsureDB(name string) (*DB, error) { return c.c.EnsureDB(context.Background(), name) }
 func (c *Client) DeleteDB(name string) error { return c.c.DeleteDB(context.Background(), name) }
 func (c *Client) AllDBs() (names []string, err error) { return c.c.AllDBs(context.Background()) }
-func (c *Client) DB(name string) *DB { return c.c.DB(name) }
+func (c *Client) DB(name string) *DB { return &DB{db: c.c.DB(name)} }

@@ -46,7 +46,7 @@ func (c *ContextAwareClient) SetAuth(a Auth) {
 // The request will fail with status "412 Precondition Failed" if the database
 // already exists. A valid DB object is returned in all cases, even if the
 // request fails.
-func (c *ContextAwareClient) CreateDB(ctx context.Context, name string) (*DB, error) {
+func (c *ContextAwareClient) CreateDB(ctx context.Context, name string) (*ContextAwareDB, error) {
 	if _, err := c.closedRequest(ctx, "PUT", path(name), nil); err != nil {
 		return c.DB(name), err
 	}
@@ -54,14 +54,14 @@ func (c *ContextAwareClient) CreateDB(ctx context.Context, name string) (*DB, er
 }
 
 // CreateDBWithShards creates a new database with the specified number of shards
-func (c *ContextAwareClient) CreateDBWithShards(ctx context.Context, name string, shards int) (*DB, error) {
+func (c *ContextAwareClient) CreateDBWithShards(ctx context.Context, name string, shards int) (*ContextAwareDB, error) {
 	_, err := c.closedRequest(ctx, "PUT", fmt.Sprintf("%s?q=%d", path(name), shards), nil)
 
 	return c.DB(name), err
 }
 
 // EnsureDB ensures that a database with the given name exists.
-func (c *ContextAwareClient) EnsureDB(ctx context.Context, name string) (*DB, error) {
+func (c *ContextAwareClient) EnsureDB(ctx context.Context, name string) (*ContextAwareDB, error) {
 	db, err := c.CreateDB(ctx, name)
 	if err != nil && !ErrorStatus(err, http.StatusPreconditionFailed) {
 		return nil, err
@@ -98,9 +98,18 @@ func NewClient(addr *url.URL, client *http.Client, auth Auth) *Client{ return &C
 func (c *Client) URL() string { return c.c.URL() }
 func (c *Client) Ping() error { return c.c.Ping(context.Background()) }
 func (c *Client) SetAuth(a Auth) { c.c.SetAuth(a) }
-func (c *Client) CreateDB(name string) (*DB, error) { return c.c.CreateDB(context.Background(), name) }
-func (c *Client) CreateDBWithShards(name string, shards int) (*DB, error) { return c.c.CreateDBWithShards(context.Background(), name, shards) }
-func (c *Client) EnsureDB(name string) (*DB, error) { return c.c.EnsureDB(context.Background(), name) }
+func (c *Client) CreateDB(name string) (*DB, error) {
+	db, err := c.c.CreateDB(context.Background(), name)
+	return &DB{ db:db}, err
+}
+func (c *Client) CreateDBWithShards(name string, shards int) (*DB, error) {
+	db, err :=c.c.CreateDBWithShards(context.Background(), name, shards)
+	return &DB{db: db}, err
+}
+func (c *Client) EnsureDB(name string) (*DB, error) {
+	db, err := c.c.EnsureDB(context.Background(), name)
+	return &DB{db:db}, err
+}
 func (c *Client) DeleteDB(name string) error { return c.c.DeleteDB(context.Background(), name) }
 func (c *Client) AllDBs() (names []string, err error) { return c.c.AllDBs(context.Background()) }
 func (c *Client) DB(name string) *DB { return &DB{db: c.c.DB(name)} }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"context"
 )
 
 // Attachment represents document attachments.
@@ -19,7 +20,7 @@ type Attachment struct {
 // The rev argument can be left empty to retrieve the latest revision.
 // The caller is responsible for closing the attachment's Body if
 // the returned error is nil.
-func (db *DB) Attachment(docid, name, rev string) (*Attachment, error) {
+func (db *ContextAwareDB) Attachment(ctx context.Context, docid, name, rev string) (*Attachment, error) {
 	if docid == "" {
 		return nil, fmt.Errorf("couchdb.GetAttachment: empty docid")
 	}
@@ -27,7 +28,7 @@ func (db *DB) Attachment(docid, name, rev string) (*Attachment, error) {
 		return nil, fmt.Errorf("couchdb.GetAttachment: empty attachment Name")
 	}
 
-	resp, err := db.request("GET", revpath(rev, db.name, docid, name), nil)
+	resp, err := db.request(ctx, "GET", revpath(rev, db.name, docid, name), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +44,7 @@ func (db *DB) Attachment(docid, name, rev string) (*Attachment, error) {
 // AttachmentMeta requests attachment metadata.
 // The rev argument can be left empty to retrieve the latest revision.
 // The returned attachment's Body is always nil.
-func (db *DB) AttachmentMeta(docid, name, rev string) (*Attachment, error) {
+func (db *ContextAwareDB) AttachmentMeta(ctx context.Context, docid, name, rev string) (*Attachment, error) {
 	if docid == "" {
 		return nil, fmt.Errorf("couchdb.GetAttachment: empty docid")
 	}
@@ -52,7 +53,7 @@ func (db *DB) AttachmentMeta(docid, name, rev string) (*Attachment, error) {
 	}
 
 	path := revpath(rev, db.name, docid, name)
-	resp, err := db.closedRequest("HEAD", path, nil)
+	resp, err := db.closedRequest(ctx, "HEAD", path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +62,7 @@ func (db *DB) AttachmentMeta(docid, name, rev string) (*Attachment, error) {
 
 // PutAttachment creates or updates an attachment.
 // To create an attachment on a non-existing document, pass an empty rev.
-func (db *DB) PutAttachment(docid string, att *Attachment, rev string) (newrev string, err error) {
+func (db *ContextAwareDB) PutAttachment(ctx context.Context, docid string, att *Attachment, rev string) (newrev string, err error) {
 	if docid == "" {
 		return rev, fmt.Errorf("couchdb.PutAttachment: empty docid")
 	}
@@ -77,6 +78,7 @@ func (db *DB) PutAttachment(docid string, att *Attachment, rev string) (newrev s
 	if err != nil {
 		return rev, err
 	}
+	req.WithContext(ctx)
 	req.Header.Set("content-type", att.Type)
 
 	resp, err := db.http.Do(req)
@@ -92,7 +94,7 @@ func (db *DB) PutAttachment(docid string, att *Attachment, rev string) (newrev s
 }
 
 // DeleteAttachment removes an attachment.
-func (db *DB) DeleteAttachment(docid, name, rev string) (newrev string, err error) {
+func (db *ContextAwareDB) DeleteAttachment(ctx context.Context, docid, name, rev string) (newrev string, err error) {
 	if docid == "" {
 		return rev, fmt.Errorf("couchdb.PutAttachment: empty docid")
 	}
@@ -101,7 +103,7 @@ func (db *DB) DeleteAttachment(docid, name, rev string) (newrev string, err erro
 	}
 
 	path := revpath(rev, db.name, docid, name)
-	resp, err := db.closedRequest("DELETE", path, nil)
+	resp, err := db.closedRequest(ctx, "DELETE", path, nil)
 	return responseRev(resp, err)
 }
 
@@ -120,3 +122,8 @@ func attFromHeaders(name string, resp *http.Response) (*Attachment, error) {
 	}
 	return att, nil
 }
+
+func (db *DB) Attachment(docid, name, rev string) (*Attachment, error) { return db.db.Attachment(context.Background(), docid, name, rev) }
+func (db *DB) AttachmentMeta(docid, name, rev string) (*Attachment, error) { return db.db.AttachmentMeta(context.Background(), docid, name, rev) }
+func (db *DB) PutAttachment(docid string, att *Attachment, rev string) (newrev string, err error) {return db.db.PutAttachment(context.Background(), docid, att, rev)}
+func (db *DB) DeleteAttachment(docid, name, rev string) (newrev string, err error) {return db.db.DeleteAttachment(context.Background(), docid, name, rev)}

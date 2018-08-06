@@ -61,6 +61,16 @@ func (t *transport) addAuth(req *http.Request) *http.Request {
 	return req
 }
 
+func (t *transport) newRequest(method, path string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, t.prefix+path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	t.addAuth(req)
+	return req, nil
+}
+
 // request sends an HTTP request to a CouchDB server.
 // The request URL is constructed from the server's
 // prefix and the given path, which may contain an
@@ -68,12 +78,11 @@ func (t *transport) addAuth(req *http.Request) *http.Request {
 //
 // Status codes >= 400 are treated as errors.
 func (t *transport) request(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, t.prefix+path, body)
+	req, err := t.newRequest(method, t.prefix+path, body)
 	if err != nil {
 		return nil, err
 	}
 
-	t.addAuth(req)
 	req.WithContext(ctx)
 
 	if method != "GET" {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"context"
 )
 
 // DBUpdatesFeed is an iterator for the _db_updates feed.
@@ -35,14 +36,14 @@ type DBUpdatesFeed struct {
 // Pleas note that the "feed" option is currently always set to "continuous".
 //
 // http://docs.couchdb.org/en/latest/api/server/common.html#db-updates
-func (c *Client) DBUpdates(options Options) (*DBUpdatesFeed, error) {
+func (c *ContextAwareClient) DBUpdates(ctx context.Context, options Options) (*DBUpdatesFeed, error) {
 	newopts := options.clone()
 	newopts["feed"] = "continuous"
 	path, err := optpath(newopts, nil, "_db_updates")
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.request("GET", path, nil)
+	resp, err := c.request(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +53,7 @@ func (c *Client) DBUpdates(options Options) (*DBUpdatesFeed, error) {
 	}
 	return feed, nil
 }
+func (c *Client) DBUpdates(options Options) (*DBUpdatesFeed, error) {return c.c.DBUpdates(context.Background(), options)}
 
 // Next decodes the next event in a _db_updates feed. It returns false when
 // the feeds end has been reached or an error has occurred.
@@ -80,7 +82,7 @@ func (f *DBUpdatesFeed) Close() error {
 	return f.conn.Close()
 }
 
-// ChangesFeed is an iterator for the _changes feed of a database.
+// ContextAwareChangesFeed is an iterator for the _changes feed of a database.
 // On each call to the Next method, the event fields are updated
 // for the current event. Next is designed to be used in a for loop:
 //
@@ -91,11 +93,11 @@ func (f *DBUpdatesFeed) Close() error {
 //     }
 //     err = feed.Err()
 //     ...
-type ChangesFeed struct {
+type ContextAwareChangesFeed struct {
 	// DB is the database. Since all events in a _changes feed
 	// belong to the same database, this field is always equivalent to the
 	// database from the DB.Changes call that created the feed object
-	DB *DB `json:"-"`
+	DB *ContextAwareDB `json:"-"`
 
 	// ID is the document ID of the current event.
 	ID string `json:"id"`
@@ -139,34 +141,34 @@ type ChangesFeed struct {
 // documentation:
 //
 // http://docs.couchdb.org/en/latest/api/database/changes.html#db-changes
-func (db *DB) ContinuousChanges(options Options) (*ChangesFeed, error) {
-	return db.continuousChanges("GET", options, nil)
+func (db *ContextAwareDB) ContinuousChanges(ctx context.Context, options Options) (*ContextAwareChangesFeed, error) {
+	return db.continuousChanges(ctx, "GET", options, nil)
 }
 
 // ContinuousChangesWithBody opens a regular changes feed, but uses a POST
 // that includes a JSON payload of the provided body.
-func (db *DB) ContinuousChangesWithBody(options Options, body interface{}) (*ChangesFeed, error) {
+func (db *ContextAwareDB) ContinuousChangesWithBody(ctx context.Context, options Options, body interface{}) (*ContextAwareChangesFeed, error) {
 	json, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	b := bytes.NewReader(json)
-	return db.continuousChanges("POST", options, b)
+	return db.continuousChanges(ctx, "POST", options, b)
 }
 
-func (db *DB) continuousChanges(method string, options Options, body io.Reader) (*ChangesFeed, error) {
+func (db *ContextAwareDB) continuousChanges(ctx context.Context, method string, options Options, body io.Reader) (*ContextAwareChangesFeed, error) {
 	options["feed"] = "continuous"
 	path, err := optpath(options, nil, db.name, "_changes")
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := db.request(method, path, body)
+	resp, err := db.request(ctx, method, path, body)
 	if err != nil {
 		return nil, err
 	}
 
-	feed := &ChangesFeed{
+	feed := &ContextAwareChangesFeed{
 		DB:      db,
 		conn:    resp.Body,
 		decoder: json.NewDecoder(resp.Body),
@@ -177,7 +179,7 @@ func (db *DB) continuousChanges(method string, options Options, body io.Reader) 
 
 // Next decodes the next event. It returns false when the feeds end has been
 // reached or an error has occurred.
-func (f *ChangesFeed) Next() (bool, error) {
+func (f *ContextAwareChangesFeed) Next() (bool, error) {
 	// the json doesn't include the 'deleted' attr unless it's deleted,
 	// so we need to set this to false before parsing the next row so that
 	// it's not maintained from the previous row
@@ -193,12 +195,112 @@ func (f *ChangesFeed) Next() (bool, error) {
 }
 
 // Err returns the last error that occurred during iteration.
-func (f *ChangesFeed) Err() error {
+func (f *ContextAwareChangesFeed) Err() error {
 	return f.err
 }
 
 // Close terminates the connection of the feed.
 // If Next returns false, the feed has already been closed.
+func (f *ContextAwareChangesFeed) Close() error {
+	f.end = true
+	return f.conn.Close()
+}
+
+func (f *ContextAwareChangesFeed) parse() error {
+	if err := f.decoder.Decode(f); err != nil {
+		return err
+	}
+
+	var err error
+	f.end, err = f.isEnd()
+	return err
+}
+
+func (f *ContextAwareChangesFeed) isEnd() (bool, error) {
+	if f.LastSeq == nil {
+		return false, nil
+	}
+
+	switch f.LastSeq.(type) {
+	case string:
+		return f.LastSeq.(string) != "", nil
+	case int:
+		return f.LastSeq.(int) > 0, nil
+	case int64:
+		return f.LastSeq.(int64) > 0, nil
+	case float32:
+		return f.LastSeq.(float32) > 0, nil
+	case float64:
+		return f.LastSeq.(float64) > 0, nil
+	default:
+		err := fmt.Errorf("LastSeq of type %T is not supported, assuming feed end", f.LastSeq)
+		return true, err
+	}
+
+}
+
+// Deprecated: Use ContextAwareChangesFeed
+type ChangesFeed struct {
+	DB *DB `json:"-"`
+	ID string `json:"id"`
+	Deleted bool `json:"deleted"`
+	Seq interface{} `json:"seq"`
+	LastSeq interface{} `json:"last_seq"`
+	Doc json.RawMessage `json:"doc"`
+	end     bool
+	err     error
+	conn    io.Closer
+	decoder *json.Decoder
+	parser  func() error
+}
+
+func (db *DB) ContinuousChanges(options Options) (*ChangesFeed, error) {
+	return db.continuousChanges(context.Background(), "GET", options, nil)
+}
+
+func (db *DB) ContinuousChangesWithBody(options Options, body interface{}) (*ChangesFeed, error) {
+	json, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	b := bytes.NewReader(json)
+	return db.continuousChanges(context.Background(), "POST", options, b)
+}
+
+func (db *DB) continuousChanges(ctx context.Context, method string, options Options, body io.Reader) (*ChangesFeed, error) {
+	options["feed"] = "continuous"
+	path, err := optpath(options, nil, db.db.name, "_changes")
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := db.db.request(ctx, method, path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	feed := &ChangesFeed{
+		DB:      db,
+		conn:    resp.Body,
+		decoder: json.NewDecoder(resp.Body),
+	}
+
+	return feed, nil
+}
+
+func (f *ChangesFeed) Next() (bool, error) {
+	f.Deleted = false
+
+	if f.end {
+		return false, nil
+	}
+	if f.err = f.parse(); f.err != nil || f.end {
+		f.Close()
+	}
+	return !f.end, f.err
+}
+
+func (f *ChangesFeed) Err() error { return f.err }
 func (f *ChangesFeed) Close() error {
 	f.end = true
 	return f.conn.Close()
@@ -234,5 +336,4 @@ func (f *ChangesFeed) isEnd() (bool, error) {
 		err := fmt.Errorf("LastSeq of type %T is not supported, assuming feed end", f.LastSeq)
 		return true, err
 	}
-
 }

@@ -78,7 +78,7 @@ func (t *transport) newRequest(method, path string, body io.Reader) (*http.Reque
 //
 // Status codes >= 400 are treated as errors.
 func (t *transport) request(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	req, err := t.newRequest(method, t.prefix+path, body)
+	req, err := t.newRequest(method, path, body)
 	if err != nil {
 		return nil, err
 	}

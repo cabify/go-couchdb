@@ -246,12 +246,12 @@ func TestBulkGet(t *testing.T) {
 			{"id":"baz","docs":[{"error":{"id":"baz","rev":"undefined","error":"not_found","reason":"missing"}}]}]}`)
 	})
 
-	docs, notFound, err := c.DB("db").BulkGet([]string{"foo", "bar", "baz"}, &testDocument{}, nil)
+	docs, notFound, err := c.DB("db").BulkGet([]string{"foo", "bar", "baz"}, testDocument{}, nil)
 	check(t, "err", nil, err)
 	check(t, "notFound", []string{"baz"}, notFound)
 
 	for _, doc := range docs {
-		document := doc.(*testDocument)
+		document := doc.(testDocument)
 		switch document.ID {
 		case "foo":
 			check(t, "foo.Rev", "4-753875d51501a6b1883a9d62b4d33f91", document.Rev)

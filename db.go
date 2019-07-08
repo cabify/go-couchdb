@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 )
 
@@ -62,9 +63,9 @@ func (db *DB) Get(id string, doc interface{}, opts Options) error {
 }
 
 // BulkGet retrieves several documents by their ID.
-// It accepts a list of ID, a pointer to a struct acting as a response type and an Options struct.
+// It accepts a list of ID, a struct acting as a response type and an Options struct.
 // It returns the list of found docs as a []interface{}, the list of docs not found as a []string and an eventual error.
-// The found docs should be casted to the same type of docType
+// The found docs should be casted to the same type of docType.
 func (db *DB) BulkGet(ids []string, docType interface{}, opts Options) (docs []interface{}, notFound []string, err error) {
 	path, err := optpath(opts, getJsonKeys, db.name, "_bulk_get")
 	if err != nil {
@@ -90,17 +91,22 @@ func (db *DB) BulkGet(ids []string, docType interface{}, opts Options) (docs []i
 		return nil, nil, err
 	}
 
+	docTypeType := reflect.TypeOf(docType)
+	if docTypeType.Kind() == reflect.Ptr {
+		docTypeType = docTypeType.Elem()
+	}
 	for _, result := range response.Results {
 		if len(result.Docs) > 0 {
 			wrapper := result.Docs[0]
 			if wrapper.Error != nil || wrapper.Ok == nil {
 				notFound = append(notFound, result.Id)
 			} else if wrapper.Ok != nil {
-				err := json.Unmarshal(wrapper.Ok, docType)
+				foundDoc := reflect.New(docTypeType)
+				err := json.Unmarshal(wrapper.Ok, foundDoc.Interface())
 				if err != nil {
 					return nil, nil, err
 				}
-				docs = append(docs, docType)
+				docs = append(docs, foundDoc.Elem().Interface())
 			}
 		}
 	}

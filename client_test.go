@@ -250,17 +250,25 @@ func TestBulkGet(t *testing.T) {
 	check(t, "err", nil, err)
 	check(t, "notFound", []string{"baz"}, notFound)
 
+	var fooDoc testDocument
+	var barDoc testDocument
+
 	for _, doc := range docs {
 		document := doc.(testDocument)
 		switch document.ID {
 		case "foo":
-			check(t, "foo.Rev", "4-753875d51501a6b1883a9d62b4d33f91", document.Rev)
-			check(t, "foo.Field", 1, document.Field)
+			fooDoc = document
 		case "bar":
-			check(t, "foo.Rev", "2-9b71d36dfdd9b4815388eb91cc8fb61d", document.Rev)
-			check(t, "foo.Field", 2, document.Field)
+			barDoc = document
 		}
 	}
+	check(t, "fooDoc.ID", "foo", fooDoc.ID)
+	check(t, "fooDoc.Rev", "4-753875d51501a6b1883a9d62b4d33f91", fooDoc.Rev)
+	check(t, "fooDoc.Field", 1, fooDoc.Field)
+
+	check(t, "barDoc.ID", "bar", barDoc.ID)
+	check(t, "barDoc.Rev", "2-9b71d36dfdd9b4815388eb91cc8fb61d", barDoc.Rev)
+	check(t, "barDoc.Field", 2, barDoc.Field)
 }
 
 func TestRev(t *testing.T) {

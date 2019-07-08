@@ -18,8 +18,8 @@ type errorWrapper struct {
 }
 
 type docWrapper struct {
-	Ok    *json.RawMessage `json:"ok"`
-	Error *errorWrapper    `json:"error"`
+	Ok    json.RawMessage `json:"ok"`
+	Error *errorWrapper   `json:"error"`
 }
 
 type bulkRes struct {

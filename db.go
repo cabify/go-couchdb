@@ -96,7 +96,7 @@ func (db *DB) BulkGet(ids []string, docType interface{}, opts Options) (docs []i
 			if wrapper.Error != nil || wrapper.Ok == nil {
 				notFound = append(notFound, result.Id)
 			} else if wrapper.Ok != nil {
-				err := json.Unmarshal(*wrapper.Ok, docType)
+				err := json.Unmarshal(wrapper.Ok, docType)
 				if err != nil {
 					return nil, nil, err
 				}

@@ -1,5 +1,8 @@
 # Cabify CouchDB Library ChangeLog
 
+## 0.2.1
+- Using xerrors for error detection
+
 ## 0.2.0
 ### Added
 - BulkGet method to query multiple documents per id at once

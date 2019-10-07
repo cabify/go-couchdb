@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"golang.org/x/xerrors"
 )
 
 // Options represents CouchDB query string parameters.
@@ -270,8 +272,11 @@ func Conflict(err error) bool {
 // ErrorStatus checks whether the given error is a DatabaseError
 // with a matching statusCode.
 func ErrorStatus(err error, statusCode int) bool {
-	dberr, ok := err.(*Error)
-	return ok && dberr.StatusCode == statusCode
+	var dberr *Error
+	if xerrors.As(err, &dberr) {
+		return dberr.StatusCode == statusCode
+	}
+	return false
 }
 
 func parseError(resp *http.Response) error {

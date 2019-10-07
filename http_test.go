@@ -47,4 +47,7 @@ func TestErrorHandling(t *testing.T) {
 	if couchdb.Conflict(fe) {
 		t.Errorf("Did not expect a conflict")
 	}
+	if couchdb.Conflict(nil) {
+		t.Errorf("Did not expect a conflict with nil")
+	}
 }

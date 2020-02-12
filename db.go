@@ -217,6 +217,35 @@ func (db *DB) View(ddoc, view string, result interface{}, opts Options) error {
 	return readBody(resp, &result)
 }
 
+// PostView invokes a view.
+// The ddoc parameter must be the name of the design document
+// containing the view, but excluding the _design/ prefix.
+//
+// PostView functionality supports identical parameters and behavior
+// as specified in the View function but allows for the query string
+// parameters to be supplied as keys in a JSON object in the body of
+// the POST request.
+//
+// The output of the query is unmarshalled into the given result.
+// The format of the result depends on the options. Please
+// refer to the CouchDB HTTP API documentation for all the possible
+// options that can be set.
+//
+// http://docs.couchdb.org/en/latest/api/ddoc/views.html
+func (db *DB) PostView(ddoc, view string, result interface{}, opts Options) error {
+	ddoc = strings.Replace(ddoc, "_design/", "", 1)
+	path := path(db.name, "_design", ddoc, "_view", view)
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return err
+	}
+	resp, err := db.request(db.ctx, "POST", path, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	return readBody(resp, &result)
+}
+
 // AllDocs invokes the _all_docs view of a database.
 //
 // The output of the query is unmarshalled into the given result.

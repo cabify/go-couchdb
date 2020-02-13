@@ -231,15 +231,22 @@ func (db *DB) View(ddoc, view string, result interface{}, opts Options) error {
 // refer to the CouchDB HTTP API documentation for all the possible
 // options that can be set.
 //
+// Note it seems that only `keys` property is recognize on the payload
+// the rest must go as query parameters
+//
 // http://docs.couchdb.org/en/latest/api/ddoc/views.html
-func (db *DB) PostView(ddoc, view string, result interface{}, opts Options) error {
+func (db *DB) PostView(ddoc, view string, result interface{}, opts Options, payload Payload) error {
 	ddoc = strings.Replace(ddoc, "_design/", "", 1)
-	path := path(db.name, "_design", ddoc, "_view", view)
-	body, err := json.Marshal(opts)
+	path, err := optpath(opts, viewJsonKeys, db.name, "_design", ddoc, "_view", view)
 	if err != nil {
 		return err
 	}
-	resp, err := db.request(db.ctx, "POST", path, bytes.NewReader(body))
+	json, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	body := bytes.NewReader(json)
+	resp, err := db.request(db.ctx, "POST", path, body)
 	if err != nil {
 		return err
 	}

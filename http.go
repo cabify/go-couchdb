@@ -19,6 +19,9 @@ import (
 // Options represents CouchDB query string parameters.
 type Options map[string]interface{}
 
+// Payload represents CouchDB body parameters.
+type Payload map[string]interface{}
+
 // clone creates a shallow copy of an Options map
 func (opts Options) clone() (result Options) {
 	result = make(Options)

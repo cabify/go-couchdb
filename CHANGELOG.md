@@ -1,5 +1,9 @@
 # Cabify CouchDB Library ChangeLog
 
+## 0.3.1
+### Fixed
+- PostView func needs body and query parameters
+
 ## 0.3.0
 ### Added
 - PostView method to query views with POST method

@@ -233,7 +233,7 @@ func TestGetNonexistingDoc(t *testing.T) {
 func TestBulkGet(t *testing.T) {
 	c := newTestClient(t)
 	c.Handle("POST /db/_bulk_get", func(resp http.ResponseWriter, req *http.Request) {
-		reqData := couchdb.BulkGetReq{}
+		reqData := couchdb.BulkGet{}
 		body, _ := ioutil.ReadAll(req.Body)
 		err := json.Unmarshal(body, &reqData)
 		check(t, "reqData.Docs[0].ID", "foo", reqData.Docs[0].ID)

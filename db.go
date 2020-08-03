@@ -73,7 +73,7 @@ func (db *DB) BulkGet(ids []string, docType interface{}, opts Options) (docs []i
 		return nil, nil, err
 	}
 
-	request := &BulkGetReq{}
+	request := &BulkGet{}
 	for _, id := range ids {
 		request.Docs = append(request.Docs, struct{ ID string }{ID: id})
 	}

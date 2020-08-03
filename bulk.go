@@ -6,7 +6,7 @@ type bulkID struct {
 	ID string `json:"id"`
 }
 
-type BulkGetReq struct {
+type BulkGet struct {
 	Docs []struct{ ID string } `json:"docs"`
 }
 

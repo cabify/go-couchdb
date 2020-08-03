@@ -4,12 +4,13 @@ package couchdb_test
 
 import (
 	"bytes"
-	"github.com/cabify/go-couchdb"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"github.com/cabify/go-couchdb"
 )
 
 // testClient is a very special couchdb.Client that also implements

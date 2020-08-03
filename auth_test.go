@@ -1,9 +1,10 @@
 package couchdb_test
 
 import (
-	"github.com/cabify/go-couchdb"
 	"net/http"
 	"testing"
+
+	"github.com/cabify/go-couchdb"
 )
 
 func TestBasicAuth(t *testing.T) {

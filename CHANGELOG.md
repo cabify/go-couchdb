@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 ### Added
-- BulkDocs method
+- Nothing
 
 ### Changed
 - Nothing
@@ -18,6 +18,10 @@
 
 ### Security
 - Nothing
+
+## [0.4.0] - 2020-08-03
+### Added
+- BulkDocs method
 
 ## [0.3.1] - 2020-02-13
 ### Fixed

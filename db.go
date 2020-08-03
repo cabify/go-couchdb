@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"reflect"
 	"strings"
 )
@@ -85,7 +86,7 @@ func (db *DB) BulkGet(ids []string, docType interface{}, opts Options) (docs []i
 		return nil, nil, err
 	}
 
-	response := bulkResp{}
+	response := bulkGetResp{}
 	err = readBody(resp, &response)
 	if err != nil {
 		return nil, nil, err
@@ -147,6 +148,48 @@ func (db *DB) Put(id string, doc interface{}, rev string) (newrev string, err er
 	}
 	b := bytes.NewReader(json)
 	return responseRev(db.closedRequest(db.ctx, "PUT", path, b))
+}
+
+// BulkDocs allows to create, update and/or delete multiple documents in a single request.
+// The basic operations are similar to creating or updating a single document,
+// except that they are batched into one request.
+//
+// BulkDocs accepts an array of documents to be processed.
+// Documents may contain _id, _rev and _deleted,
+// depending on the wanted operation,
+// as well as the corresponding document fields if needed.
+//
+// It returns a slice of results with the outcome of every operation or an error.
+// The only mandatory field is the ID.
+// The rest of the structure of the result depends if it was successful or not.
+// Note that no error will be returned if an operation or more fail.
+//
+// Observe that behaviour of two or more operations in a single document is undetermined.
+// There are no guarantees that the operations will be processed in any given order.
+//
+// Reference: https://cloud.ibm.com/docs/Cloudant?topic=Cloudant-documents#bulk-operations
+func (db *DB) BulkDocs(docs ...interface{}) (res []BulkDocsResp, err error) {
+	path := revpath("", db.name, "_bulk_docs")
+
+	var req BulkDocsReq
+	req.Docs = make([]interface{}, 0, len(docs))
+	for _, doc := range docs {
+		req.Docs = append(req.Docs, doc)
+	}
+
+	bodyJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	body := bytes.NewReader(bodyJSON)
+	httpResp, err := db.request(db.ctx, http.MethodPost, path, body)
+
+	err = readBody(httpResp, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 // Delete marks a document revision as deleted.

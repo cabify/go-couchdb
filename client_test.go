@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -316,6 +317,71 @@ func TestPut(t *testing.T) {
 		t.Fatal(err)
 	}
 	check(t, "returned rev", "1-619db7ba8551c0de3f3a178775509611", rev)
+}
+
+func TestBulkDocs(t *testing.T) {
+	c := newTestClient(t)
+	c.Handle("POST /db/_bulk_docs", func(rw http.ResponseWriter, req *http.Request) {
+		body, _ := ioutil.ReadAll(req.Body)
+		fmt.Println(string(body))
+		reqData := couchdb.BulkDocsReq{}
+		err := json.Unmarshal(body, &reqData)
+		check(t, "json.Unmarshal", err, nil)
+
+		check(t, "request body", "Barney", reqData.Docs[0].(map[string]interface{})["_id"])
+		check(t, "request body", "Fred Flintstone", reqData.Docs[1].(map[string]interface{})["name"])
+		check(t, "request body", "Pebbles", reqData.Docs[2].(map[string]interface{})["_id"])
+		check(t, "request body", "Dino", reqData.Docs[3].(map[string]interface{})["name"])
+
+		rw.WriteHeader(http.StatusOK)
+		_, err = io.WriteString(rw, `[{"ok":true,"id":"Barney","rev":"1"},
+    		{"ok":true,"id":"Fred","rev":"1"},
+    		{"ok":true,"id":"Pebbles","rev":"2"},
+			{"id":"Dino","error":"conflict","reason":"Document update conflict"}]`)
+		check(t, "io.WriteString", err, nil)
+
+	})
+
+	type createDoc struct {
+		Name string `json:"name"`
+		ID   string `json:"_id"`
+		Rev  string `json:"_rev"`
+	}
+	type updateDoc struct {
+		Name string `json:"name"`
+		Age  int32  `json:"age"`
+	}
+	type delDoc struct {
+		ID      string `json:"_id"`
+		Rev     string `json:"_rev"`
+		Deleted bool   `json:"_deleted"`
+	}
+
+	docCreate := &createDoc{"Barney Rubble", "Barney", "1"}
+	docUpdate := &updateDoc{"Fred Flintstone", 41}
+	docDel := &delDoc{"Pebbles", "2", true}
+	docFailUpdate := &updateDoc{Name: "Dino", Age: 5}
+
+	res, err := c.DB("db").BulkDocs(docCreate, docUpdate, docDel, docFailUpdate)
+	check(t, "BulkDocs", err, nil)
+
+	createRes := res[0]
+	check(t, "createRes.OK", true, createRes.OK)
+	check(t, "createRes.ID", "Barney", createRes.ID)
+	check(t, "createRes.Rev", "1", createRes.Rev)
+
+	updateRes := res[1]
+	check(t, "updateRes.OK", true, updateRes.OK)
+
+	delRes := res[2]
+	check(t, "delRes.OK", true, delRes.OK)
+	check(t, "delRes.ID", "Pebbles", delRes.ID)
+	check(t, "delRes.Rev", "2", delRes.Rev)
+
+	updateFailuteRes := res[3]
+	check(t, "updateFailuteRes.OK", false, updateFailuteRes.OK)
+	check(t, "updateFailuteRes.ID", "Dino", updateFailuteRes.ID)
+	check(t, "updateFailuteRes.Error", "conflict", updateFailuteRes.Error)
 }
 
 func TestPutWithRev(t *testing.T) {

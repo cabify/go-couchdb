@@ -7,7 +7,7 @@ type bulkID struct {
 }
 
 type BulkGet struct {
-	Docs []struct{ ID string } `json:"docs"`
+	Docs []bulkID `json:"docs"`
 }
 
 type BulkDocsReq struct {

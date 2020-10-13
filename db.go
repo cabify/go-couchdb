@@ -75,7 +75,7 @@ func (db *DB) BulkGet(ids []string, docType interface{}, opts Options) (docs []i
 
 	request := &BulkGet{}
 	for _, id := range ids {
-		request.Docs = append(request.Docs, struct{ ID string }{ID: id})
+		request.Docs = append(request.Docs, bulkID{ID: id})
 	}
 
 	bodyJson, err := json.Marshal(request)

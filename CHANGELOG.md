@@ -19,6 +19,10 @@
 ### Security
 - Nothing
 
+## [0.4.1] - 2020-08-03
+### Added
+- Fix BulkGet request body
+
 ## [0.4.0] - 2020-08-03
 ### Added
 - BulkDocs method

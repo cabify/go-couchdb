@@ -19,6 +19,10 @@
 ### Security
 - Nothing
 
+## [0.5.0] - 2024-04-09
+### Added
+- Added PostSearchIndex endpoint to give support for search indexes
+
 ## [0.4.1] - 2020-08-03
 ### Fixed
 - Fix BulkGet request body

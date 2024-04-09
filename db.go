@@ -23,8 +23,7 @@ type DB struct {
 // WithContext returns a new copy of the database object with the
 // new context set. Use like:
 //
-//   db.WithContext(ctx).Post(doc)
-//
+//	db.WithContext(ctx).Post(doc)
 func (db *DB) WithContext(ctx context.Context) *DB {
 	db2 := new(DB)
 	*db2 = *db
@@ -281,6 +280,34 @@ func (db *DB) View(ddoc, view string, result interface{}, opts Options) error {
 func (db *DB) PostView(ddoc, view string, result interface{}, opts Options, payload Payload) error {
 	ddoc = strings.Replace(ddoc, "_design/", "", 1)
 	path, err := optpath(opts, viewJsonKeys, db.name, "_design", ddoc, "_view", view)
+	if err != nil {
+		return err
+	}
+	json, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	body := bytes.NewReader(json)
+	resp, err := db.request(db.ctx, "POST", path, body)
+	if err != nil {
+		return err
+	}
+	return readBody(resp, &result)
+}
+
+// PostSearchIndex invokes a Search Index
+// The ddoc parameter must be the name of the design document
+// containing the index, but excluding the _design/ prefix.
+//
+// The output of the query is unmarshalled into the given result.
+// The format of the result depends on the options. Please
+// refer to the CouchDB HTTP API documentation for all the possible
+// options that can be set.
+//
+// https://docs.couchdb.org/en/stable/ddocs/search.html
+func (db *DB) PostSearchIndex(ddoc, index string, result interface{}, opts Options, payload Payload) error {
+	ddoc = strings.Replace(ddoc, "_design/", "", 1)
+	path, err := optpath(opts, viewJsonKeys, db.name, "_design", ddoc, "_search", index)
 	if err != nil {
 		return err
 	}

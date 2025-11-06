@@ -278,19 +278,37 @@ func ErrorStatus(err error, statusCode int) bool {
 }
 
 func parseError(resp *http.Response) error {
-	var reply struct{ Error, Reason string }
+	var errorCode, reason string
 	if resp.Request.Method != "HEAD" {
-		if err := readBody(resp, &reply); err != nil {
-			unknown := fmt.Sprintf("unknown, couldn't decode CouchDB error: %v", err)
-			reply.Error = unknown
-			reply.Reason = unknown
-		}
+		errorCode, reason = parseErrorBody(resp)
 	}
 	return &Error{
 		Method:     resp.Request.Method,
 		URL:        resp.Request.URL.String(),
 		StatusCode: resp.StatusCode,
-		ErrorCode:  reply.Error,
-		Reason:     reply.Reason,
+		ErrorCode:  errorCode,
+		Reason:     reason,
 	}
 }
+
+// parseErrorBody reads the response body and extracts error information.
+// It first tries to parse as JSON, and if that fails, uses the raw body as a string.
+func parseErrorBody(resp *http.Response) (errorCode, reason string) {
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Sprintf("unknown, couldn't decode CouchDB error: %v", err), ""
+	}
+
+	var reply struct{ Error, Reason string }
+	if err := json.Unmarshal(body, &reply); err != nil {
+		// If JSON parsing fails, use the raw body as the error message
+		bodyStr := string(body)
+		return "unknown", bodyStr
+	}
+
+	// Successfully parsed JSON, use the parsed fields
+	return reply.Error, reply.Reason
+}
+
